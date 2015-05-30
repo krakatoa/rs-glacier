@@ -13,6 +13,7 @@ use hyper::uri::RequestUri::AbsolutePath;
 extern crate url;
 
 use url::form_urlencoded;
+use std::collections::HashMap;
 
 use std::io::{self, Read};
 
@@ -20,7 +21,9 @@ fn hello(mut req: Request, mut res: Response) {
 
   let mut s = String::new();
   req.read_to_string(&mut s);
-  let params: Vec<(String, String)> = url::form_urlencoded::parse(s.as_bytes());
+
+  let mut params: HashMap<String, String> = HashMap::new();
+  let mut query: Vec<(String, String)> = url::form_urlencoded::parse(s.as_bytes());
 
   match req.uri {
     AbsolutePath(ref path) => match (&req.method, &path[..]) {
@@ -41,19 +44,52 @@ fn hello(mut req: Request, mut res: Response) {
       },
       (&Post, "/users") => {
         let (k, v): (String, String);
-        for p in params.iter() {
+        for p in query.iter() {
           let (ref k, ref v) = *p;
-          println!("{}: {}", k, v);
+          params.insert(k.clone(), v.clone());
         }
+
+        let username: String;
+        let password: String;
+        let aws_access_key_id: String;
+        let aws_secret_access_key: String;
+
+        match params.get("user_username") {
+          Some(value) => username = value.clone(),
+          None => {
+            println!("username not found");
+            return;
+          }
+        }
+
+        match params.get("user_password") {
+          Some(value) => password = value.clone(),
+          None => {
+            println!("password not found");
+            return;
+          }
+        }
+
+        match params.get("user_aws_access_key_id") {
+          Some(value) => aws_access_key_id = value.clone(),
+          None => {
+            println!("aws_access_key_id not found");
+            return;
+          }
+        }
+
+        match params.get("user_aws_secret_access_key") {
+          Some(value) => aws_secret_access_key = value.clone(),
+          None => {
+            println!("aws_secret_access_key not found");
+            return;
+          }
+        }
+
+        println!("user: {}, pass: {}", username, password);
+
         return;
       },
-      /*(&Post, "/index.html") => {
-        *res.status_mut() = hyper::NotFound;
-        println!("should fail");
-        return;
-      },
-      (&Post, "/echo") => (), // fall through, fighting mutable borrows
-      */
       _ => {
         *res.status_mut() = hyper::NotFound;
         return;
@@ -65,7 +101,6 @@ fn hello(mut req: Request, mut res: Response) {
   };
 
   let mut res = res.start().unwrap();
-  // res.end().unwrap();
 }
 
 fn main() {
