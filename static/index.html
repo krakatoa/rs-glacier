@@ -1,8 +1,16 @@
 <html>
   <head>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script type="text/javascript" src="./app.js"></script>
   </head>
   <body>
-    <a href="sarasa.html"><img src="/settings.png"></a>
+    <a href="settings.html" class="settings"><img src="./settings.png"></a>
+    <form action="/users" method="post">
+      username: <input type="text" name="user_username">
+      password: <input type="password" name="user_password">
+      aws access key id: <input type="text" name="user_aws_access_key_id">
+      aws secret access key: <input type="password" name="user_aws_secret_access_key">
+      <button type="submit">Submit</button>
+    </form>
   </body>
 </html>

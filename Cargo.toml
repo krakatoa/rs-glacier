@@ -6,3 +6,4 @@ authors = ["Fernando Alonso <krakatoa1987@gmail.com>"]
 [dependencies]
 hyper = "*"
 lmdb-rs = "*"
+url = "*"
