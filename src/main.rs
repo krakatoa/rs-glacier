@@ -17,6 +17,25 @@ use std::collections::HashMap;
 
 use std::io::{self, Read};
 
+extern crate rusqlite;
+use rusqlite::SqliteConnection;
+use std::path::{Path};
+
+fn create_user(username: &String, password: &String) {
+  let path = Path::new("./test-sqlite.db");
+  let conn = SqliteConnection::open(&path).unwrap();
+
+  // conn.execute("CREATE TABLE users (
+  //               id              SERIAL PRIMARY KEY,
+  //               username        VARCHAR NOT NULL,
+  //               password        VARCHAR NOT NULL
+  //               )", &[]).unwrap();
+
+  conn.execute("INSERT INTO users (username, password)
+                VALUES ($1, $2)",
+               &[username, password]).unwrap();
+}
+
 fn hello(mut req: Request, mut res: Response) {
 
   let mut s = String::new();
@@ -42,7 +61,7 @@ fn hello(mut req: Request, mut res: Response) {
         res.send(static_app_js);
         return;
       },
-      (&Post, "/users") => {
+      (&Post, "/register") => {
         let (k, v): (String, String);
         for p in query.iter() {
           let (ref k, ref v) = *p;
@@ -51,8 +70,8 @@ fn hello(mut req: Request, mut res: Response) {
 
         let username: String;
         let password: String;
-        let aws_access_key_id: String;
-        let aws_secret_access_key: String;
+        // let aws_access_key_id: String;
+        // let aws_secret_access_key: String;
 
         match params.get("user_username") {
           Some(value) => username = value.clone(),
@@ -70,22 +89,23 @@ fn hello(mut req: Request, mut res: Response) {
           }
         }
 
-        match params.get("user_aws_access_key_id") {
-          Some(value) => aws_access_key_id = value.clone(),
-          None => {
-            println!("aws_access_key_id not found");
-            return;
-          }
-        }
+        //match params.get("user_aws_access_key_id") {
+        //  Some(value) => aws_access_key_id = value.clone(),
+        //  None => {
+        //    println!("aws_access_key_id not found");
+        //    return;
+        //  }
+        //}
 
-        match params.get("user_aws_secret_access_key") {
-          Some(value) => aws_secret_access_key = value.clone(),
-          None => {
-            println!("aws_secret_access_key not found");
-            return;
-          }
-        }
+        //match params.get("user_aws_secret_access_key") {
+        //  Some(value) => aws_secret_access_key = value.clone(),
+        //  None => {
+        //    println!("aws_secret_access_key not found");
+        //    return;
+        //  }
+        //}
 
+        create_user(&username, &password);
         println!("user: {}, pass: {}", username, password);
 
         return;

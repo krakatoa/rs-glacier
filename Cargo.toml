@@ -7,3 +7,5 @@ authors = ["Fernando Alonso <krakatoa1987@gmail.com>"]
 hyper = "*"
 lmdb-rs = "*"
 url = "*"
+rusqlite = "*"
+time = "*"
