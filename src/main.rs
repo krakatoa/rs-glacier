@@ -21,19 +21,34 @@ extern crate rusqlite;
 use rusqlite::SqliteConnection;
 use std::path::{Path};
 
+extern crate crypto;
+
+use crypto::bcrypt::bcrypt;
+
 fn create_user(username: &String, password: &String) {
   let path = Path::new("./test-sqlite.db");
   let conn = SqliteConnection::open(&path).unwrap();
 
-  // conn.execute("CREATE TABLE users (
-  //               id              SERIAL PRIMARY KEY,
-  //               username        VARCHAR NOT NULL,
-  //               password        VARCHAR NOT NULL
-  //               )", &[]).unwrap();
+  conn.execute("CREATE TABLE users (
+                id              SERIAL PRIMARY KEY,
+                username        VARCHAR NOT NULL,
+                password        VARCHAR NOT NULL,
+                salt            VARCHAR NOT NULL
+                )", &[]).unwrap();
 
-  conn.execute("INSERT INTO users (username, password)
-                VALUES ($1, $2)",
-               &[username, password]).unwrap();
+  let mut encrypted_password_u8 = [0u8; 24];
+  let mut salt: String = "0123456789012345".to_string();
+  bcrypt(5, salt.as_bytes(), password.as_bytes(), &mut encrypted_password_u8[..]);
+
+  let mut encrypted_password: Vec<u8> = vec![];
+
+  for c in encrypted_password_u8.iter() {
+    encrypted_password.push(*c);
+  };
+
+  conn.execute("INSERT INTO users (username, password, salt)
+                VALUES ($1, $2, $3)",
+               &[username, &encrypted_password, salt]).unwrap();
 }
 
 fn hello(mut req: Request, mut res: Response) {
@@ -88,6 +103,8 @@ fn hello(mut req: Request, mut res: Response) {
             return;
           }
         }
+
+        
 
         //match params.get("user_aws_access_key_id") {
         //  Some(value) => aws_access_key_id = value.clone(),
