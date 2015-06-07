@@ -27,9 +27,22 @@ use rand::{OsRng, Rng};
 
 extern crate rustc_serialize;
 use rustc_serialize::base64::{STANDARD, ToBase64, FromBase64};
+use rustc_serialize::json;
+use rustc_serialize::json::{Json, Parser};
+
+//aws
+
+extern crate aws;
+
+//#[macro_use]
+//extern crate log;
+// extern crate env_logger;
+use aws::request::ApiClient;
+use aws::credentials::Credentials;
+// use std::io::Read;
 
 fn create_user(username: &String, password: &String) {
-  create_table();
+  create_users_table();
 
   let path = Path::new("./test-sqlite.db");
   let conn = SqliteConnection::open(&path).unwrap();
@@ -51,7 +64,7 @@ fn create_user(username: &String, password: &String) {
                &[username, &encrypted_password.to_base64(STANDARD), &salt]).unwrap();
 }
 
-fn create_table() -> Result<i32, rusqlite::SqliteError> {
+fn create_users_table() -> Result<i32, rusqlite::SqliteError> {
   let path = Path::new("./test-sqlite.db");
   let conn = SqliteConnection::open(&path).unwrap();
 
@@ -64,6 +77,57 @@ fn create_table() -> Result<i32, rusqlite::SqliteError> {
   Ok(try!(stmt.execute(&[])))
 }
 
+fn sync_vaults_for_user(access_key: &str, secret_key: &str) {
+  create_vaults_table();
+
+  // env_logger::init().unwrap();
+  let cred = Credentials::create("AKIXXX", "xxx");
+  let region = "us-east-1";
+  let service = "glacier";
+
+  let client = ApiClient::new(cred, region, service);
+  let res = client.get("vaults");
+  let mut output: String = String::new();
+  res.unwrap().read_to_string(&mut output);
+
+  let data = Json::from_str(&output).unwrap();
+  // println!("data: {}", data);
+
+  let obj = data.as_object().unwrap();
+  println!("vault.list: {:?}", obj.get("VaultList").unwrap().as_array().unwrap());
+  for v in obj.get("VaultList").unwrap().as_array().unwrap().iter() {
+    let vault = v.as_object().unwrap();
+    println!("vault: {}", vault.get("VaultName").unwrap());
+    println!("vault.arn: {}", vault.get("VaultARN").unwrap());
+    println!("vault.files: {}", vault.get("NumberOfArchives").unwrap());
+    println!("vault.size: {}", vault.get("SizeInBytes").unwrap());
+    println!("vault.created_at: {}", vault.get("CreationDate").unwrap());
+
+    create_vault(vault.get("VaultName").unwrap().as_string().unwrap());
+  }
+
+  // println!("{:?}", output)
+}
+
+fn create_vaults_table() -> Result<i32, rusqlite::SqliteError> {
+  let path = Path::new("./test-sqlite.db");
+  let conn = SqliteConnection::open(&path).unwrap();
+
+  let mut stmt: rusqlite::SqliteStatement = try!(conn.prepare("CREATE TABLE vaults (
+                id              SERIAL PRIMARY KEY,
+                name            VARCHAR NOT NULL
+                )"));
+  Ok(try!(stmt.execute(&[])))
+}
+
+fn create_vault(name: &str) {
+  let path = Path::new("./test-sqlite.db");
+  let conn = SqliteConnection::open(&path).unwrap();
+
+  conn.execute("INSERT INTO vaults (name)
+                VALUES ($1)",
+               &[&name]).unwrap();
+}
 fn generate_salt() -> String {
   let mut gen = OsRng::new().ok().expect("Failed to get OS random generator");
   // let mut key: Vec<u8> = vec![]; //Vec::from_elem(16, 0u8);
@@ -118,6 +182,7 @@ fn hello(mut req: Request, mut res: Response) {
   match req.uri {
     AbsolutePath(ref path) => match (&req.method, &path[..]) {
       (&Get, "/index.html") => {
+        sync_vaults_for_user("AKIAIH73NQHFSUK4ZT6Q", "RzDI5l4F3Y0PHFtgRPJosktpO9NQ9UdT55m");
         // generate_salt();
         // authenticate_user(&"chimuelo".to_string(), &"sarasa".to_string());
         let static_index_html = include_bytes!("../static/index.html");
