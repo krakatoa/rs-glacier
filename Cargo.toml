@@ -9,3 +9,9 @@ lmdb-rs = "*"
 url = "*"
 rusqlite = "*"
 time = "*"
+rust-crypto = "*"
+rustc-serialize = "*"
+rand = "*"
+
+[dependencies.aws]
+git = "https://github.com/krakatoa/aws-rs"
