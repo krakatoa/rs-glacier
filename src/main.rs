@@ -16,17 +16,11 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 
 extern crate rusqlite;
-use rusqlite::SqliteConnection;
-use std::path::{Path};
 
 extern crate crypto;
-use crypto::bcrypt::bcrypt;
-
 extern crate rand;
-use rand::{OsRng, Rng};
 
 extern crate rustc_serialize;
-use rustc_serialize::base64::{STANDARD, ToBase64, FromBase64};
 use rustc_serialize::json;
 use rustc_serialize::json::{Json, Parser};
 
@@ -34,142 +28,10 @@ use rustc_serialize::json::{Json, Parser};
 
 extern crate aws;
 
-//#[macro_use]
-//extern crate log;
-// extern crate env_logger;
-use aws::request::ApiClient;
-use aws::credentials::Credentials;
-// use std::io::Read;
+mod user;
+mod glacier;
 
-fn create_user(username: &String, password: &String) {
-  create_users_table();
-
-  let path = Path::new("./test-sqlite.db");
-  let conn = SqliteConnection::open(&path).unwrap();
-
-  let mut encrypted_password_u8 = [0u8; 24];
-  let mut salt: String = generate_salt();
-  bcrypt(5, salt.as_bytes(), password.as_bytes(), &mut encrypted_password_u8[..]);
-
-  let mut encrypted_password: Vec<u8> = vec![];
-
-  for c in encrypted_password_u8.iter() {
-    encrypted_password.push(*c);
-  };
-
-  // println!("DEBUG: salt: {}", encrypted_password.to_base64(STANDARD));
-
-  conn.execute("INSERT INTO users (username, password, salt)
-                VALUES ($1, $2, $3)",
-               &[username, &encrypted_password.to_base64(STANDARD), &salt]).unwrap();
-}
-
-fn create_users_table() -> Result<i32, rusqlite::SqliteError> {
-  let path = Path::new("./test-sqlite.db");
-  let conn = SqliteConnection::open(&path).unwrap();
-
-  let mut stmt: rusqlite::SqliteStatement = try!(conn.prepare("CREATE TABLE users (
-                id              SERIAL PRIMARY KEY,
-                username        VARCHAR NOT NULL,
-                password        VARCHAR NOT NULL,
-                salt            VARCHAR NOT NULL
-                )"));
-  Ok(try!(stmt.execute(&[])))
-}
-
-fn sync_vaults_for_user(access_key: &str, secret_key: &str) {
-  create_vaults_table();
-
-  // env_logger::init().unwrap();
-  let cred = Credentials::create("AKIXXX", "xxx");
-  let region = "us-east-1";
-  let service = "glacier";
-
-  let client = ApiClient::new(cred, region, service);
-  let res = client.get("vaults");
-  let mut output: String = String::new();
-  res.unwrap().read_to_string(&mut output);
-
-  let data = Json::from_str(&output).unwrap();
-  // println!("data: {}", data);
-
-  let obj = data.as_object().unwrap();
-  println!("vault.list: {:?}", obj.get("VaultList").unwrap().as_array().unwrap());
-  for v in obj.get("VaultList").unwrap().as_array().unwrap().iter() {
-    let vault = v.as_object().unwrap();
-    println!("vault: {}", vault.get("VaultName").unwrap());
-    println!("vault.arn: {}", vault.get("VaultARN").unwrap());
-    println!("vault.files: {}", vault.get("NumberOfArchives").unwrap());
-    println!("vault.size: {}", vault.get("SizeInBytes").unwrap());
-    println!("vault.created_at: {}", vault.get("CreationDate").unwrap());
-
-    create_vault(vault.get("VaultName").unwrap().as_string().unwrap());
-  }
-
-  // println!("{:?}", output)
-}
-
-fn create_vaults_table() -> Result<i32, rusqlite::SqliteError> {
-  let path = Path::new("./test-sqlite.db");
-  let conn = SqliteConnection::open(&path).unwrap();
-
-  let mut stmt: rusqlite::SqliteStatement = try!(conn.prepare("CREATE TABLE vaults (
-                id              SERIAL PRIMARY KEY,
-                name            VARCHAR NOT NULL
-                )"));
-  Ok(try!(stmt.execute(&[])))
-}
-
-fn create_vault(name: &str) {
-  let path = Path::new("./test-sqlite.db");
-  let conn = SqliteConnection::open(&path).unwrap();
-
-  conn.execute("INSERT INTO vaults (name)
-                VALUES ($1)",
-               &[&name]).unwrap();
-}
-fn generate_salt() -> String {
-  let mut gen = OsRng::new().ok().expect("Failed to get OS random generator");
-  // let mut key: Vec<u8> = vec![]; //Vec::from_elem(16, 0u8);
-  // let mut key: Vec<u8> = Vec::with_capacity(16);
-  let mut key = [0u8; 10];
-  gen.fill_bytes(&mut key[..]);
-  println!("Key: {}", key.to_base64(STANDARD));
-  key.to_base64(STANDARD)
-}
-
-fn authenticate_user(username: &String, password: &String) {
-
-  let path = Path::new("./test-sqlite.db");
-  let conn = SqliteConnection::open(&path).unwrap();
-
-  let mut query: String = format!("SELECT password, salt FROM users WHERE username = '{}'", username);
-  // println!("DEBUG: {}", query);
-
-  conn.query_row(&query[..], &[], |row| {
-    let challenged_password: Vec<u8> = row.get(0);
-
-    let salt_u8: Vec<u8> = row.get(1);
-    let mut salt: String = String::from_utf8(salt_u8).unwrap();
-    // println!("DEBUG: salt: {}", std::str::from_utf8(&salt[..]).unwrap());
-    println!("DEBUG: salt: {}", salt);
-
-    let mut gen_enc_password_u8 = [0u8; 24];
-    let mut gen_enc_password: Vec<u8> = vec![];
-
-    // bcrypt(5, &salt[..], &std::str::from_utf8(password.as_bytes()).unwrap().from_base64().unwrap()[..], &mut gen_enc_password_u8[..]);
-    // bcrypt(5, &salt.as_bytes(), &password.from_base64().unwrap()[..], &mut gen_enc_password_u8[..]);
-    bcrypt(5, &salt.as_bytes(), &password.as_bytes(), &mut gen_enc_password_u8[..]);
-
-    for c in gen_enc_password_u8.iter() {
-      gen_enc_password.push(*c);
-    };
-    // println!("gen_enc_password: {:?}", gen_enc_password.to_base64(STANDARD));
-    // println!("challenged_password: {:?}", std::str::from_utf8(&challenged_password[..]).unwrap()); //.to_base64(STANDARD));
-
-    assert_eq!(std::str::from_utf8(&challenged_password[..]).unwrap(), gen_enc_password.to_base64(STANDARD));
-  }).unwrap()
-}
+use user::User;
 
 fn hello(mut req: Request, mut res: Response) {
 
@@ -182,7 +44,7 @@ fn hello(mut req: Request, mut res: Response) {
   match req.uri {
     AbsolutePath(ref path) => match (&req.method, &path[..]) {
       (&Get, "/index.html") => {
-        sync_vaults_for_user("AKIAIH73NQHFSUK4ZT6Q", "RzDI5l4F3Y0PHFtgRPJosktpO9NQ9UdT55m");
+        glacier::sync_vaults_for_user("AKIAIH73NQHFSUK4ZT6Q", "RzDI5l4F3Y0PHFtgRPJosktpO9NQ9UdT55m");
         // generate_salt();
         // authenticate_user(&"chimuelo".to_string(), &"sarasa".to_string());
         let static_index_html = include_bytes!("../static/index.html");
@@ -243,8 +105,7 @@ fn hello(mut req: Request, mut res: Response) {
         //  }
         //}
 
-        create_user(&username, &password);
-        println!("user: {}, pass: {}", username, password);
+        User::new(username, password).save();
 
         return;
       },
