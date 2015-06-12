@@ -44,7 +44,7 @@ fn hello(mut req: Request, mut res: Response) {
   match req.uri {
     AbsolutePath(ref path) => match (&req.method, &path[..]) {
       (&Get, "/index.html") => {
-        glacier::sync_vaults_for_user("AKIAIH73NQHFSUK4ZT6Q", "RzDI5l4F3Y0PHFtgRPJosktpO9NQ9UdT55m");
+        glacier::sync_vaults_for_user("AKIXXX", "XXX");
         // generate_salt();
         // authenticate_user(&"chimuelo".to_string(), &"sarasa".to_string());
         let static_index_html = include_bytes!("../static/index.html");
