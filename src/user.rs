@@ -11,7 +11,7 @@ use std;
 pub struct User {
   username: String,
   password: String,
-  encrypted_password: Option<Vec<u8>>,
+  encrypted_password: Option<String>,
   salt: Option<String>
 }
 
@@ -25,7 +25,7 @@ impl User {
     }
   }
 
-  fn encrypt(&self) -> User {
+  fn encrypt(&mut self) -> &mut User {
     let mut encrypted_password_u8 = [0u8; 24];
     let mut salt: String = User::generate_salt();
     bcrypt(5, salt.as_bytes(), self.password.as_bytes(), &mut encrypted_password_u8[..]);
@@ -36,26 +36,25 @@ impl User {
       encrypted_password.push(*c);
     };
 
-    // println!("DEBUG: salt: {}", encrypted_password.to_base64(STANDARD));
-    User {
-      username: self.username.clone(),
-      password: self.password.clone(),
-      encrypted_password: Some(encrypted_password),
-      salt: Some(salt)
-    }
+    self.encrypted_password = Some(encrypted_password.to_base64(STANDARD));
+    self.salt = Some(salt);
+    self
   }
 
-  pub fn save(&self) {
+  pub fn save(&mut self) {
     // create_users_table();
 
-    let crypted: User = self.encrypt();
+    self.encrypt();
+    // println!("DEBUG: encrypted_password: {}", std::str::from_utf8(&(self.encrypted_password.clone().unwrap())[..]).unwrap());
+    println!("DEBUG: encrypted_password: {}", self.encrypted_password.clone().unwrap());
+    println!("DEBUG: salt: {}", self.salt.clone().unwrap());
 
     let path = Path::new("./test-sqlite.db");
     let conn = SqliteConnection::open(&path).unwrap();
 
     conn.execute("INSERT INTO users (username, password, salt)
                   VALUES ($1, $2, $3)",
-                 &[&crypted.username.clone(), &crypted.encrypted_password.clone().unwrap().to_base64(STANDARD), &crypted.salt.clone().unwrap()]).unwrap();
+                 &[&self.username.clone(), &self.encrypted_password.clone().unwrap(), &self.salt.clone().unwrap()]).unwrap();
   }
 
   pub fn generate_salt() -> String {
