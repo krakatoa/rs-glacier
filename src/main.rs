@@ -29,7 +29,9 @@ use rustc_serialize::json::{Json, Parser};
 extern crate aws;
 
 mod user;
+mod vault;
 mod glacier;
+mod store;
 
 use user::User;
 
@@ -44,7 +46,7 @@ fn hello(mut req: Request, mut res: Response) {
   match req.uri {
     AbsolutePath(ref path) => match (&req.method, &path[..]) {
       (&Get, "/index.html") => {
-        // glacier::sync_vaults_for_user("AKIXXX", "XXX");
+        vault::sync_vaults_for_user("AKIXXX", "XXX");
 
         // authenticate_user(&"chimuelo".to_string(), &"sarasa".to_string());
         let static_index_html = include_bytes!("../static/index.html");
@@ -89,22 +91,6 @@ fn hello(mut req: Request, mut res: Response) {
           }
         }
 
-        //match params.get("user_aws_access_key_id") {
-        //  Some(value) => aws_access_key_id = value.clone(),
-        //  None => {
-        //    println!("aws_access_key_id not found");
-        //    return;
-        //  }
-        //}
-
-        //match params.get("user_aws_secret_access_key") {
-        //  Some(value) => aws_secret_access_key = value.clone(),
-        //  None => {
-        //    println!("aws_secret_access_key not found");
-        //    return;
-        //  }
-        //}
-
         User::new(username, password).save();
 
         return;
@@ -123,5 +109,6 @@ fn hello(mut req: Request, mut res: Response) {
 }
 
 fn main() {
+  // store::init();
   Server::http(hello).listen("0.0.0.0:3000").unwrap();
 }

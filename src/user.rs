@@ -67,19 +67,6 @@ impl User {
     key.to_base64(STANDARD)
   }
 
-  fn create_users_table() -> Result<i32, rusqlite::SqliteError> {
-    let path = Path::new("./test-sqlite.db");
-    let conn = SqliteConnection::open(&path).unwrap();
-
-    let mut stmt: rusqlite::SqliteStatement = try!(conn.prepare("CREATE TABLE users (
-                  id              SERIAL PRIMARY KEY,
-                  username        VARCHAR NOT NULL,
-                  password        VARCHAR NOT NULL,
-                  salt            VARCHAR NOT NULL
-                  )"));
-    Ok(try!(stmt.execute(&[])))
-  }
-
   pub fn authenticate_user(username: &String, password: &String) {
 
     let path = Path::new("./test-sqlite.db");
